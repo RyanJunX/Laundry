@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>洗衣助手</title>
+    <style>
+        :root {
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --accent-green: #10b981;
+            --accent-orange: #f59e0b; /* 警告色 */
+            --accent-red: #ef4444;    /* 危险色 */
+            --border: #e5e7eb;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #111827;
+            --card-bg: #1f2937;
+            --text-main: #f9fafb;
+            --text-sub: #9ca3af;
+            --primary: #60a5fa;
+            --border: #374151;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container { width: 100%; max-width: 500px; display: flex; flex-direction: column; gap: 15px; }
+
+        /* 标题栏 */
+        header { display: flex; justify-content: space-between; align-items: center; }
+        h1 { margin: 0; font-size: 1.5rem; }
+        .theme-btn { background: none; border: 1px solid var(--border); color: var(--text-main); padding: 6px 10px; border-radius: 8px; cursor: pointer; }
+
+        /* 通用卡片 */
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            transition: 0.3s;
+            border: 1px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 1. 强提醒模式样式 */
+        .card.urgent-mode {
+            border-color: var(--accent-red);
+            background-color: #fef2f2; /* 浅红背景 */
+        }
+        [data-theme="dark"] .card.urgent-mode { background-color: #3f1a1a; }
+
+        .urgent-banner {
+            background-color: var(--accent-red);
+            color: white;
+            text-align: center;
+            padding: 8px;
+            font-weight: bold;
+            margin: -20px -20px 15px -20px; /* 贴顶 */
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+
+        /* 状态显示 */
+        .status-box { text-align: center; padding: 25px 10px; }
+        .days-count { font-size: 3.5rem; font-weight: 800; line-height: 1; margin: 10px 0; }
+        
+        /* 状态颜色 */
+        .text-green { color: var(--accent-green); }
+        .text-orange { color: var(--accent-orange); }
+        .text-red { color: var(--accent-red); }
+
+        .sub-info { display: flex; justify-content: space-around; margin-top: 15px; font-size: 0.9rem; color: var(--text-sub); }
+        .sub-info strong { display: block; color: var(--text-main); font-size: 1.1rem; margin-top: 4px; }
+
+        /* 统计建议栏 */
+        .stats-hint {
+            background: rgba(59, 130, 246, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: var(--primary);
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .apply-btn { font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
+
+        /* 控制区 */
+        .input-group { margin-bottom: 15px; }
+        .input-label { display: block; margin-bottom: 8px; font-weight: 600; }
+        
+        /* 标签选择器 */
+        .tags-container { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 15px; }
+        .tag-checkbox { display: none; } /* 隐藏原生checkbox */
+        .tag-label {
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            user-select: none;
+            transition: 0.2s;
+        }
+        .tag-checkbox:checked + .tag-label {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        input[type="number"] { width: 60px; padding: 6px; border-radius: 6px; border: 1px solid var(--border); text-align: center; font-size: 1rem; }
+
+        /* 按钮组 */
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:active { transform: scale(0.98); }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
+
+        /* 历史列表 */
+        .history-list { list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto; }
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .history-item.today-highlight { background-color: rgba(16, 185, 129, 0.1); padding: 12px 10px; border-radius: 8px; border-bottom: none; margin-bottom: 5px; }
+        .h-date { font-weight: 600; font-size: 1rem; }
+        .h-tags { font-size: 0.8rem; color: var(--text-sub); display: block; margin-top: 2px; }
+        .h-meta { text-align: right; }
+        .h-badge { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; background: #e5e7eb; color: #374151; margin-left: 5px; }
+        
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1 id="pageTitle">🧺 洗衣助手</h1>
+        <button class="theme-btn" id="themeToggle">🌙</button>
+    </header>
+
+    <div class="card" id="statusCard">
+        <div id="urgentBanner" class="urgent-banner hidden">已经到时间啦！快去洗衣服！🧺</div>
+
+        <div class="status-box">
+            <div id="statusText" class="status-text">距离建议洗衣还有</div>
+            <div class="days-count" id="daysRemaining">--</div>
+            <div id="dateDetails" class="sub-info">
+                <div>上次 <strong id="lastDateDisplay">--/--</strong></div>
+                <div>建议 <strong id="nextDateDisplay">--/--</strong></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div id="statsBox" class="stats-hint hidden">
+            <span id="statsText">正在分析习惯...</span>
+            <span id="applySuggestBtn" class="apply-btn">设为建议值</span>
+        </div>
+        
+        <div style="margin-top: 15px;"></div>
+
+        <div class="input-group" style="display: flex; align-items: center; justify-content: space-between;">
+            <label>📅 设定间隔(天):</label>
+            <input type="number" id="intervalInput" value="3" min="1" max="60">
+        </div>
+
+        <div class="input-group">
+            <label class="input-label">🏷️ 本次清洗类型 (可多选):</label>
+            <div class="tags-container">
+                <input type="checkbox" id="tag1" class="tag-checkbox" value="衣物" checked>
+                <label for="tag1" class="tag-label">👕 衣物</label>
+
+                <input type="checkbox" id="tag2" class="tag-checkbox" value="内衣袜">
+                <label for="tag2" class="tag-label">🧦 内衣袜</label>
+
+                <input type="checkbox" id="tag3" class="tag-checkbox" value="床单被套">
+                <label for="tag3" class="tag-label">🛌 床单被套</label>
+
+                <input type="checkbox" id="tag4" class="tag-checkbox" value="毛巾">
+                <label for="tag4" class="tag-label">🧣 毛巾</label>
+                
+                <input type="checkbox" id="tag5" class="tag-checkbox" value="运动">
+                <label for="tag5" class="tag-label">🏃 运动服</label>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="recordBtn">✨ 记录今天洗了</button>
+        
+        <div class="btn-grid">
+            <button class="btn btn-secondary" id="copyBtn">📋 复制提醒</button>
+            <button class="btn btn-secondary" id="icsBtn">📅 导出日历</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="margin:0;">历史记录</h3>
+            <span style="font-size:0.8rem; color:var(--accent-red); cursor:pointer;" id="clearBtn">清空</span>
+        </div>
+        <ul class="history-list" id="historyList"></ul>
+    </div>
+</div>
+
+<script>
+    // === 1. 数据管理与迁移 ===
+    const STORAGE_KEY = 'laundry_app_v2';
+    let appData = {
+        history: [], // 结构: [{date: ISOString, tags: []}]
+        interval: 3,
+        theme: 'light'
+    };
+
+    // DOM 引用
+    const els = {
+        daysRemaining: document.getElementById('daysRemaining'),
+        statusText: document.getElementById('statusText'),
+        lastDate: document.getElementById('lastDateDisplay'),
+        nextDate: document.getElementById('nextDateDisplay'),
+        statusCard: document.getElementById('statusCard'),
+        urgentBanner: document.getElementById('urgentBanner'),
+        recordBtn: document.getElementById('recordBtn'),
+        historyList: document.getElementById('historyList'),
+        intervalInput: document.getElementById('intervalInput'),
+        statsBox: document.getElementById('statsBox'),
+        statsText: document.getElementById('statsText'),
+        applySuggestBtn: document.getElementById('applySuggestBtn'),
+        pageTitle: document.getElementById('pageTitle')
+    };
+
+    function init() {
+        // 尝试读取 V2 数据
+        const saved = localStorage.getItem(STORAGE_KEY);
+        
+        // 尝试读取旧版 V1 数据 (兼容性迁移)
+        const oldSaved = localStorage.getItem('laundry_app_data');
+
+        if (saved) {
+            appData = JSON.parse(saved);
+        } else if (oldSaved) {
+            // 迁移逻辑：将旧的字符串数组转为对象数组
+            const oldData = JSON.parse(oldSaved);
+            appData.interval = oldData.interval;
+            appData.theme = oldData.theme;
+            appData.history = oldData.history.map(dateStr => ({
+                date: dateStr,
+                tags: ['衣物(旧记录)']
+            }));
+            alert("🎉 已自动升级你的历史数据格式！");
+            save(); // 保存新格式
+        }
+
+        applyTheme(appData.theme);
+        els.intervalInput.value = appData.interval;
+        render();
+        
+        // 页面加载时，如果过期，弹窗一次
+        checkAlertOnLoad();
+    }
+
+    function save() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        render();
+    }
+
+    // === 2. 核心渲染逻辑 (增强版) ===
+    function render() {
+        // A. 处理历史记录列表
+        els.historyList.innerHTML = '';
+        
+        // 排序：新到旧
+        appData.history.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        const today = new Date();
+        const isTodayRecorded = appData.history.length > 0 && isSameDay(new Date(appData.history[0].date), today);
+
+        appData.history.forEach(item => {
+            const date = new Date(item.date);
+            const li = document.createElement('li');
+            
+            // 高亮今天
+            const isToday = isSameDay(date, today);
+            li.className = isToday ? 'history-item today-highlight' : 'history-item';
+            
+            // 标签显示
+            const tagsHtml = item.tags ? item.tags.map(t => `<span class="h-badge">${t}</span>`).join('') : '';
+            const tagsText = item.tags ? item.tags.join(', ') : '衣物';
+
+            li.innerHTML = `
+                <div>
+                    <div class="h-date">${date.getMonth() + 1}月${date.getDate()}日 ${isToday ? '<span style="color:var(--accent-green)">(今天)</span>' : ''}</div>
+                    <span class="h-tags">${tagsText}</span>
+                </div>
+                <div class="h-meta">
+                    ${tagsHtml}
+                </div>
+            `;
+            els.historyList.appendChild(li);
+        });
+
+        // B. 计算状态
+        if (appData.history.length === 0) {
+            updateStatusUI('empty');
+            return;
+        }
+
+        const lastRecord = appData.history[0];
+        const lastDate = new Date(lastRecord.date);
+        const nextDate = new Date(lastDate);
+        nextDate.setDate(lastDate.getDate() + parseInt(appData.interval));
+        
+        const diffDays = getDaysDiff(today, nextDate);
+
+        // 更新日期显示
+        els.lastDate.innerText = formatDate(lastDate);
+        els.nextDate.innerText = formatDate(nextDate);
+
+        // C. 状态逻辑分支
+        if (diffDays < 0) {
+            // --- 过期 (红色报警) ---
+            const lateDays = Math.abs(diffDays);
+            updateStatusUI('overdue', lateDays);
+            document.title = `⚠️ 晚了${lateDays}天 - 洗衣助手`;
+        } else if (diffDays === 0) {
+            // --- 今天 (绿色) ---
+            updateStatusUI('today');
+            document.title = `✅ 今天该洗 - 洗衣助手`;
+        } else if (diffDays === 1) {
+            // --- 明天 (橙色预警) ---
+            updateStatusUI('warning', 1);
+            document.title = `⏳ 还剩1天 - 洗衣助手`;
+        } else {
+            // --- 未来 (正常) ---
+            updateStatusUI('normal', diffDays);
+            document.title = `洗衣助手`;
+        }
+
+        // D. 更新统计
+        updateStats();
+    }
+
+    // 辅助：UI状态切换机
+    function updateStatusUI(state, days = 0) {
+        // 重置所有类
+        els.statusCard.className = 'card';
+        els.urgentBanner.classList.add('hidden');
+        els.daysRemaining.className = 'days-count';
+
+        switch (state) {
+            case 'empty':
+                els.statusText.innerText = "还没有记录";
+                els.daysRemaining.innerText = "--";
+                break;
+            case 'overdue':
+                els.statusCard.classList.add('urgent-mode'); // 红色边框+背景
+                els.urgentBanner.classList.remove('hidden'); // 顶部红条
+                els.statusText.innerText = "已经晚了";
+                els.daysRemaining.innerText = days + " 天";
+                els.daysRemaining.classList.add('text-red');
+                break;
+            case 'today':
+                els.statusText.innerText = "就是今天";
+                els.daysRemaining.innerText = "Action!";
+                els.daysRemaining.classList.add('text-green');
+                break;
+            case 'warning': // 剩1天
+                els.statusText.innerText = "明天就是洗衣服的日子";
+                els.daysRemaining.innerText = "1 天";
+                els.daysRemaining.classList.add('text-orange');
+                break;
+            case 'normal':
+                els.statusText.innerText = "距离下次建议洗衣还有";
+                els.daysRemaining.innerText = days + " 天";
+                els.daysRemaining.classList.add('text-green'); // 使用绿色表示安全
+                break;
+        }
+    }
+
+    // === 3. 统计逻辑 ===
+    function updateStats() {
+        if (appData.history.length < 2) {
+            els.statsBox.classList.add('hidden');
+            return;
+        }
+        els.statsBox.classList.remove('hidden');
+
+        // 计算平均间隔
+        let totalDiff = 0;
+        let count = 0;
+        // 只取最近5次记录来计算习惯，避免太久远的数据影响
+        const recentHistory = appData.history.slice(0, 6); 
+        
+        for (let i = 0; i < recentHistory.length - 1; i++) {
+            const d1 = new Date(recentHistory[i].date);
+            const d2 = new Date(recentHistory[i+1].date);
+            // 因为是倒序，d1 是较晚的时间
+            const diff = getDaysDiff(d2, d1); 
+            totalDiff += Math.abs(diff);
+            count++;
+        }
+
+        const avg = Math.round(totalDiff / count);
+        
+        els.statsText.innerHTML = `📊 你的平均洗衣周期是 <strong>${avg}</strong> 天`;
+        
+        if (avg !== parseInt(appData.interval)) {
+            els.applySuggestBtn.classList.remove('hidden');
+            els.applySuggestBtn.onclick = () => {
+                appData.interval = avg;
+                els.intervalInput.value = avg;
+                save(); // 重新计算并保存
+                alert(`已将建议间隔调整为 ${avg} 天`);
+            };
+        } else {
+            els.applySuggestBtn.classList.add('hidden');
+        }
+    }
+
+    // === 4. 交互事件 ===
+    
+    els.recordBtn.addEventListener('click', () => {
+        const now = new Date();
+        
+        // **防重复逻辑**
+        if (appData.history.length > 0) {
+            const lastDate = new Date(appData.history[0].date);
+            if (isSameDay(lastDate, now)) {
+                const confirmOverwrite = confirm("⚠️ 今天已经有一条记录了。\n\n点击【确定】覆盖旧记录（更新标签）。\n点击【取消】保留原样。");
+                if (!confirmOverwrite) return;
+                // 如果覆盖，先删除第一条
+                appData.history.shift();
+            }
+        }
+
+        // 获取选中的标签
+        const selectedTags = Array.from(document.querySelectorAll('.tag-checkbox:checked')).map(cb => cb.value);
+
+        // 新增记录对象
+        appData.history.unshift({
+            date: now.toISOString(),
+            tags: selectedTags.length ? selectedTags : ['衣物']
+        });
+        
+        save();
+        
+        // 按钮反馈
+        const originalText = els.recordBtn.innerText;
+        els.recordBtn.innerText = "✅ 已记录!";
+        setTimeout(() => els.recordBtn.innerText = originalText, 1000);
+    });
+
+    // 页面加载时的弹窗提醒
+    function checkAlertOnLoad() {
+        if (appData.history.length === 0) return;
+        const lastDate = new Date(appData.history[0].date);
+        const nextDate = new Date(lastDate);
+        nextDate.setDate(lastDate.getDate() + parseInt(appData.interval));
+        const diff = getDaysDiff(new Date(), nextDate);
+        
+        if (diff <= 0) {
+            // 只有当今天第一次打开时才提醒（这里简化处理，每次刷新如果过期都会提醒，符合“强提醒”需求）
+            // 为了不至于太烦人，可以用 setTimeout 稍微延迟一点弹出
+            setTimeout(() => {
+                alert("🔴 提醒：\n\n你的衣服已经过期 " + Math.abs(diff) + " 天没洗了！\n\n今天记得洗！");
+            }, 500);
+        }
+    }
+
+    // 其他通用事件
+    els.intervalInput.addEventListener('change', (e) => {
+        appData.interval = parseInt(e.target.value) || 3;
+        save();
+    });
+
+    document.getElementById('themeToggle').addEventListener('click', () => {
+        appData.theme = appData.theme === 'light' ? 'dark' : 'light';
+        applyTheme(appData.theme);
+        save();
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+        if(confirm('确定清空所有历史记录吗？')) {
+            appData.history = [];
+            save();
+        }
+    });
+
+    // 复制文字 (更新以包含标签)
+    document.getElementById('copyBtn').addEventListener('click', () => {
+        if (appData.history.length === 0) return;
+        const lastItem = appData.history[0];
+        const lastTags = lastItem.tags.join('、');
+        
+        const text = `🧺 洗衣提醒\n上次洗了：${lastTags} (${formatDate(new Date(lastItem.date))})\n建议今天赶紧洗！`;
+        
+        navigator.clipboard.writeText(text).then(() => alert('已复制到剪贴板'));
+    });
+
+    // 工具函数
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        document.getElementById('themeToggle').innerText = theme === 'light' ? '🌙' : '☀️';
+    }
+
+    function getDaysDiff(d1, d2) {
+        const date1 = new Date(d1.getFullYear(), d1.getMonth(), d1.getDate());
+        const date2 = new Date(d2.getFullYear(), d2.getMonth(), d2.getDate());
+        return Math.ceil((date2 - date1) / (1000 * 60 * 60 * 24));
+    }
+
+    function isSameDay(d1, d2) {
+        return d1.getFullYear() === d2.getFullYear() &&
+               d1.getMonth() === d2.getMonth() &&
+               d1.getDate() === d2.getDate();
+    }
+
+    function formatDate(d) {
+        return `${d.getMonth() + 1}月${d.getDate()}日`;
+    }
+
+    // 启动
+    init();
+</script>
+</body>
+</html>
